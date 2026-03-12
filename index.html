@@ -1546,8 +1546,7 @@ function cleanForYoudao(text) {
     .replace(/&/g, 'and')                  // & → and
     .replace(/\//g, ' or ')               // / → or
     .replace(/[\\#+*^%$@!?_]/g, ' ')      // 其他特殊符号
-    .replace(/\b(\d+)\.(\d+)\b/g, '$1 point $2')       // 版本号小数点：4.4→4 point 4
-    .replace(/(\d+)\+/g, '$1 plus ')                    // 6+ → 6 plus
+    .replace(/\b\d+(\.\d+)?\+?\b/g, '')   // 去掉所有版本号：4.4, 2020, 6+
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
