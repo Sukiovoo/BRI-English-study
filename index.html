@@ -525,6 +525,67 @@ main {
   letter-spacing: 0.01em;
 }
 
+/* 可点击单词 */
+.qa-en-answer .w {
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+.qa-en-answer .w:hover,
+.qa-en-answer .w:active {
+  background: rgba(240,192,64,0.18);
+  color: var(--accent);
+}
+
+/* 单词浮窗 */
+#word-popup {
+  display: none;
+  position: fixed;
+  z-index: 999;
+  background: #1a2235;
+  border: 1px solid rgba(240,192,64,0.4);
+  border-radius: 12px;
+  padding: 14px 16px 12px;
+  min-width: 200px;
+  max-width: 280px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+#word-popup.popup-show {
+  opacity: 1; transform: scale(1) translateY(0);
+}
+#word-popup.popup-hide {
+  opacity: 0; transform: scale(0.94) translateY(4px);
+  pointer-events: none;
+}
+@keyframes popupIn {
+  from { opacity:0; transform: scale(0.92) translateY(4px); }
+  to   { opacity:1; transform: scale(1) translateY(0); }
+}
+#word-popup .wp-close {
+  position: absolute; top: 8px; right: 10px;
+  background: none; border: none; color: var(--muted);
+  font-size: 16px; cursor: pointer; padding: 2px 6px;
+  border-radius: 4px;
+}
+#word-popup .wp-close:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+#word-popup .wp-word {
+  font-size: 17px; font-weight: 700; color: var(--accent);
+  margin-bottom: 4px; padding-right: 20px;
+}
+#word-popup .wp-zh {
+  font-size: 13px; color: var(--muted2);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  margin-bottom: 10px; line-height: 1.5;
+}
+#word-popup .wp-speak {
+  background: rgba(240,192,64,0.12);
+  border: 1px solid rgba(240,192,64,0.3);
+  color: var(--accent); border-radius: 6px;
+  padding: 6px 14px; cursor: pointer; font-size: 12px;
+}
+#word-popup .wp-speak:active { background: rgba(240,192,64,0.25); }
+
 .qa-en-answer .fill-blank {
   color: var(--accent);
   font-style: italic;
@@ -1718,6 +1779,20 @@ function renderQA() {
 function toggleQA(idx) {
   const card = document.getElementById(`qa-${idx}`);
   card.classList.toggle('open');
+  if (card.classList.contains('open')) {
+    // 包装英文答案
+    const enAnswer = card.querySelector('.qa-en-answer');
+    if (enAnswer && !enAnswer.dataset.wrapped) {
+      enAnswer.dataset.wrapped = '1';
+      wrapWords(enAnswer);
+    }
+    // 包装英文问题
+    const enQuestion = card.querySelector('.qa-q-en');
+    if (enQuestion && !enQuestion.dataset.wrapped) {
+      enQuestion.dataset.wrapped = '1';
+      wrapWords(enQuestion);
+    }
+  }
 }
 
 // ─── OVERVIEW STATS ───────────────────────────────────────
@@ -1761,7 +1836,155 @@ renderPhrases();
 renderQA();
 updateOverviewStats();
 updateHeaderStats();
+
+// ─── 单词浮窗 ─────────────────────────────────────────────
+let popupAudio = null;
+let currentPopupWord = '';
+let currentPopupEl = null;  // 记住选中的元素
+
+function updatePopupPosition() {
+  if (!currentPopupEl) return;
+  const popup = document.getElementById('word-popup');
+  if (!popup || popup.style.display === 'none') return;
+  const rect = currentPopupEl.getBoundingClientRect();
+
+  // 计算导航栏+标签栏+声音栏的底部高度
+  const header = document.querySelector('header');
+  const tabs = document.querySelector('.tabs');
+  const voiceBar = document.querySelector('.voice-bar');
+  const minTop = (header ? header.offsetHeight : 64)
+               + (tabs ? tabs.offsetHeight : 48)
+               + (voiceBar && voiceBar.style.display !== 'none' ? voiceBar.offsetHeight : 0)
+               + 4;
+
+  // 单词滚出上方安全区或底部视口 → 关闭浮窗
+  if (rect.bottom < minTop || rect.top > window.innerHeight) {
+    closeWordPopup(); return;
+  }
+
+  const pw = popup.offsetWidth || 220;
+  const ph = popup.offsetHeight || 120;
+  let left = rect.left;
+  let top  = rect.bottom + 6;
+  if (left + pw > window.innerWidth - 12) left = window.innerWidth - pw - 12;
+  if (left < 8) left = 8;
+  if (rect.bottom + ph + 16 > window.innerHeight) top = rect.top - ph - 6;
+
+  popup.style.left = left + 'px';
+  popup.style.top  = top + 'px';
+}
+
+window.addEventListener('scroll', updatePopupPosition, { passive: true });
+
+function wrapWords(el) {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+  const textNodes = [];
+  let node;
+  while ((node = walker.nextNode())) textNodes.push(node);
+  textNodes.forEach(textNode => {
+    const parent = textNode.parentNode;
+    if (parent.classList && parent.classList.contains('w')) return;
+    const frag = document.createDocumentFragment();
+    const parts = textNode.textContent.split(/([A-Za-z0-9'''-]+)/);
+    parts.forEach(part => {
+      if (!part) return;
+      const clean = part.replace(/['''-]+$/, '').replace(/^['''-]+/, '');
+      if (clean && /[A-Za-z]/.test(clean)) {
+        const span = document.createElement('span');
+        span.className = 'w';
+        span.textContent = part;
+        span.onclick = (e) => showWordPopup(e, clean, span);
+        frag.appendChild(span);
+      } else {
+        frag.appendChild(document.createTextNode(part));
+      }
+    });
+    parent.replaceChild(frag, textNode);
+  });
+}
+
+function showWordPopup(e, word, el) {
+  e.stopPropagation();
+  currentPopupWord = word;
+  currentPopupEl = el;
+  const popup = document.getElementById('word-popup');
+  const wpWord = document.getElementById('wp-word');
+  const wpZh = document.getElementById('wp-zh');
+  const speakBtn = document.getElementById('wp-speak-btn');
+  wpWord.textContent = word;
+  wpZh.textContent = '查询中...';
+  speakBtn.textContent = '▶ 朗读';
+  speakBtn.disabled = false;
+  // 先显示再加动画类
+  popup.style.display = 'block';
+  popup.classList.remove('popup-hide');
+  requestAnimationFrame(() => popup.classList.add('popup-show'));
+  updatePopupPosition();
+  translateWord(word);
+}
+
+function closeWordPopup() {
+  const popup = document.getElementById('word-popup');
+  if (!popup || popup.style.display === 'none') return;
+  popup.classList.remove('popup-show');
+  popup.classList.add('popup-hide');
+  if (popupAudio) { popupAudio.pause(); popupAudio = null; }
+  currentPopupWord = '';
+  currentPopupEl = null;
+  setTimeout(() => {
+    popup.style.display = 'none';
+    popup.classList.remove('popup-hide');
+  }, 200);
+}
+
+document.addEventListener('click', (e) => {
+  const popup = document.getElementById('word-popup');
+  if (popup && popup.style.display === 'block' && !popup.contains(e.target)) closeWordPopup();
+});
+
+function popupSpeak() {
+  if (!currentPopupWord) return;
+  const btn = document.getElementById('wp-speak-btn');
+  if (popupAudio) { popupAudio.pause(); popupAudio = null; btn.textContent = '▶ 朗读'; return; }
+  btn.textContent = '■ 停止';
+  const url = `https://tts-proxy.a2362799098.workers.dev/?text=${encodeURIComponent(currentPopupWord)}&lang=en-US`;
+  const audio = new Audio(url);
+  popupAudio = audio;
+  audio.onended = () => { if (popupAudio === audio) { popupAudio = null; btn.textContent = '▶ 朗读'; } };
+  audio.onerror = () => {
+    if (popupAudio === audio) {
+      popupAudio = null;
+      const utter = new SpeechSynthesisUtterance(currentPopupWord);
+      utter.lang = 'en-US';
+      const v = getBestVoice();
+      if (v) utter.voice = v;
+      utter.onend = () => { btn.textContent = '▶ 朗读'; };
+      window.speechSynthesis.speak(utter);
+    }
+  };
+  audio.play().catch(() => { if (popupAudio === audio) { popupAudio = null; btn.textContent = '▶ 朗读'; } });
+}
+
+async function translateWord(word) {
+  const wpZh = document.getElementById('wp-zh');
+  try {
+    const res = await fetch(`https://tts-proxy.a2362799098.workers.dev/?mode=translate&word=${encodeURIComponent(word)}`);
+    const data = await res.json();
+    const zh = data.zh || '暂无翻译';
+    if (currentPopupWord === word) wpZh.textContent = zh;
+  } catch {
+    if (currentPopupWord === word) wpZh.textContent = '翻译失败';
+  }
+}
 </script>
+
+<div id="word-popup">
+  <button class="wp-close" onclick="closeWordPopup()">×</button>
+  <div class="wp-word" id="wp-word"></div>
+  <div class="wp-zh" id="wp-zh">查询中...</div>
+  <button class="wp-speak" id="wp-speak-btn" onclick="popupSpeak()">▶ 朗读</button>
+</div>
+
 <div style="position:fixed; bottom:12px; right:16px; font-size:10px; color:rgba(255,255,255,0.1); letter-spacing:0.08em; pointer-events:none; z-index:9999; font-family:Consolas,monospace;">由 Sukiovo 开发</div>
 </body>
 </html>
