@@ -1071,13 +1071,6 @@ main {
       <span class="voice-label">🔊 朗读声音</span>
       <select id="voiceSelect" onchange="onVoiceChange(this)" class="voice-select"></select>
       <button id="testVoiceBtn" onclick="testVoice()" class="btn-sm btn-speak-sm test-btn">🔊 试听</button>
-      <div class="google-toggle-wrap">
-        <span class="google-toggle-label">🌐 Google 模式</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="googleModeToggle" onchange="onGoogleModeChange(this.checked)">
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
     </div>
     <div class="voice-bar-row2">
       <span class="voice-rate-label">语速</span>
@@ -1086,6 +1079,13 @@ main {
         class="rate-slider">
       <span id="rateVal" class="rate-val">0.85</span>
       <span class="voice-tip">⭐ = Edge Neural 推荐</span>
+      <div class="google-toggle-wrap">
+        <span class="google-toggle-label">🌐 Google 模式</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="googleModeToggle" onchange="onGoogleModeChange(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </div>
   </div>
 </div>
@@ -1578,7 +1578,7 @@ function translateUrl(word) {
   if (useGoogleMode) {
     return `https://tts-proxy.a2362799098.workers.dev/?mode=google-translate&word=${encodeURIComponent(word)}`;
   }
-  return translateUrl(word);
+  return `https://tts-proxy.a2362799098.workers.dev/?mode=youdao-translate&word=${encodeURIComponent(word)}`;
 }
 
 // 初始化开关状态
