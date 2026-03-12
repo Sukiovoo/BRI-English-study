@@ -840,6 +840,41 @@ main {
   gap: 10px;
   flex-wrap: wrap;
 }
+
+/* Google 模式开关 */
+.google-toggle-wrap {
+  display: flex; align-items: center; gap: 7px;
+  margin-left: auto; flex-shrink: 0;
+}
+.google-toggle-label {
+  font-size: 11px; color: var(--muted); white-space: nowrap; letter-spacing: 0.05em;
+}
+.toggle-switch {
+  position: relative; width: 36px; height: 20px; cursor: pointer; flex-shrink: 0;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute; left: 2px; top: 2px;
+  width: 14px; height: 14px;
+  background: var(--muted); border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+.toggle-switch input:checked + .toggle-slider {
+  background: rgba(79,195,247,0.25);
+  border-color: rgba(79,195,247,0.5);
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(16px);
+  background: var(--accent2);
+}
 .voice-label {
   font-size: 11px;
   color: var(--muted);
@@ -1036,6 +1071,13 @@ main {
       <span class="voice-label">🔊 朗读声音</span>
       <select id="voiceSelect" onchange="onVoiceChange(this)" class="voice-select"></select>
       <button id="testVoiceBtn" onclick="testVoice()" class="btn-sm btn-speak-sm test-btn">🔊 试听</button>
+      <div class="google-toggle-wrap">
+        <span class="google-toggle-label">🌐 Google 模式</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="googleModeToggle" onchange="onGoogleModeChange(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </div>
     <div class="voice-bar-row2">
       <span class="voice-rate-label">语速</span>
@@ -1517,6 +1559,34 @@ function onVoiceChange(sel) {
   selectedVoice = voices.find(v => v.name === sel.value) || null;
 }
 
+// ── Google 模式开关 ───────────────────────────────────────
+let useGoogleMode = localStorage.getItem('googleMode') === 'true';
+
+function onGoogleModeChange(checked) {
+  useGoogleMode = checked;
+  localStorage.setItem('googleMode', checked);
+}
+
+function ttsUrl(text) {
+  if (useGoogleMode) {
+    return `https://tts-proxy.a2362799098.workers.dev/?text=${encodeURIComponent(text)}&lang=en-US&mode=google`;
+  }
+  return `https://tts-proxy.a2362799098.workers.dev/?text=${encodeURIComponent(text)}&lang=en-US`;
+}
+
+function translateUrl(word) {
+  if (useGoogleMode) {
+    return `https://tts-proxy.a2362799098.workers.dev/?mode=google-translate&word=${encodeURIComponent(word)}`;
+  }
+  return translateUrl(word);
+}
+
+// 初始化开关状态
+document.addEventListener('DOMContentLoaded', () => {
+  const toggle = document.getElementById('googleModeToggle');
+  if (toggle) toggle.checked = useGoogleMode;
+});
+
 function testVoice() {
   const btn = document.getElementById('testVoiceBtn');
   const voice = getBestVoice();
@@ -1621,7 +1691,7 @@ function speakWord(key, text, btn) {
 
   if (isVocabCard(key)) {
     const cleaned = cleanForYoudao(text);
-    const url = `https://tts-proxy.a2362799098.workers.dev/?text=${encodeURIComponent(cleaned)}&lang=en-US`;
+    const url = ttsUrl(cleaned);
     const audio = new Audio(url);
     currentAudio = audio;
     audio.playbackRate = parseFloat(document.getElementById('rateSlider')?.value || 0.85);
@@ -1653,7 +1723,7 @@ function speakWithWebSpeech(key, text, btn) {
     idx++;
     if (!sentence) { nextSentence(); return; }
 
-    const url = `https://tts-proxy.a2362799098.workers.dev/?text=${encodeURIComponent(sentence)}&lang=en-US`;
+    const url = ttsUrl(sentence);
     const audio = new Audio(url);
     currentAudio = audio;
     audio.playbackRate = parseFloat(document.getElementById('rateSlider')?.value || 0.85);
@@ -1836,6 +1906,9 @@ renderPhrases();
 renderQA();
 updateOverviewStats();
 updateHeaderStats();
+// 恢复 Google 模式开关状态
+const _toggle = document.getElementById('googleModeToggle');
+if (_toggle) _toggle.checked = useGoogleMode;
 
 // ─── 单词浮窗 ─────────────────────────────────────────────
 let popupAudio = null;
@@ -1947,7 +2020,7 @@ function popupSpeak() {
   const btn = document.getElementById('wp-speak-btn');
   if (popupAudio) { popupAudio.pause(); popupAudio = null; btn.textContent = '▶ 朗读'; return; }
   btn.textContent = '■ 停止';
-  const url = `https://tts-proxy.a2362799098.workers.dev/?text=${encodeURIComponent(currentPopupWord)}&lang=en-US`;
+  const url = ttsUrl(currentPopupWord);
   const audio = new Audio(url);
   popupAudio = audio;
   audio.onended = () => { if (popupAudio === audio) { popupAudio = null; btn.textContent = '▶ 朗读'; } };
@@ -1968,7 +2041,7 @@ function popupSpeak() {
 async function translateWord(word) {
   const wpZh = document.getElementById('wp-zh');
   try {
-    const res = await fetch(`https://tts-proxy.a2362799098.workers.dev/?mode=translate&word=${encodeURIComponent(word)}`);
+    const res = await fetch(translateUrl(word));
     const data = await res.json();
     const zh = data.zh || '暂无翻译';
     if (currentPopupWord === word) wpZh.textContent = zh;
