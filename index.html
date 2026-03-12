@@ -1685,6 +1685,7 @@ function renderQA() {
               <div class="qa-answer-label">中文参考</div>
               <div class="qa-zh-answer">${item.a_zh}</div>
               <div class="qa-actions">
+                <button class="btn-sm btn-speak-sm" onclick="speakText('qa-q-${globalIdx}', \`${item.q_en.replace(/`/g,'\\`')}\`, this)">▶ 朗读英文问题</button>
                 <button class="btn-sm btn-speak-sm" onclick="speakText('qa-${globalIdx}', \`${item.a_en.replace(/`/g,'\\`')}\`, this)">▶ 朗读英文答案</button>
               </div>
             </div>
