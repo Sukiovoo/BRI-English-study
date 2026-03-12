@@ -1381,10 +1381,10 @@ function normalizeForSpeech(text) {
     .replace(/≥\s*/g, 'at least ')
     // ~ 或 – 范围  →  "to"
     .replace(/\s*[~–]\s*/g, ' to ')
-    // [ ] 方括号去掉（占位说明）
-    .replace(/\[.*?\]/g, '')
-    // / 斜线 → "or"（如 GLB / FBX）
-    .replace(/\s*\/\s*/g, ' or ')
+    // [ ] 方括号保留内容，去掉括号本身
+    .replace(/\[([^\]]*)\]/g, '$1')
+    // / 斜线 → 停顿（用逗号让 TTS 自然停顿）
+    .replace(/\s*\/\s*/g, ', ')
     // & → "and"
     .replace(/\s*&\s*/g, ' and ')
     // 去掉多余空格
@@ -1538,17 +1538,14 @@ function getBestVoice() {
 
 function isVocabCard(key) { return key.includes('::'); }
 
-// 清理传给有道的文本：去掉括号内容、特殊符号、版本号
+// 清理传给 Google TTS 的文本：只处理影响发音的特殊符号，保留数字和版本号
 function cleanForYoudao(text) {
   return text
-    .replace(/\(.*?\)/g, '')               // (UX), (Physically Based Rendering) 等
-    .replace(/\[.*?\]/g, '')               // [占位内容]
+    .replace(/\(.*?\)/g, '')               // 去掉括号内容：(UX), (Physically Based Rendering)
+    .replace(/\[.*?\]/g, '')               // 去掉方括号
     .replace(/&/g, 'and')                  // & → and
     .replace(/\//g, ' or ')               // / → or
-    .replace(/[\\#+*^%$@!?_]/g, ' ')      // 其他特殊符号
-    .replace(/\b\d+(\.\d+)?\+?\b/g, '')   // 去掉版本号数字：4.4, 2020, 6+
-    .replace(/\b[Rr]\d+\b/g, '')           // 去掉 R23, R24 等型号
-    .replace(/(\w)(\d+)$/g, '$1')          // 去掉末尾数字：WebGL2→WebGL
+    .replace(/[\\#+*^%$@!?_]/g, ' ')      // 其他特殊符号换空格
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
