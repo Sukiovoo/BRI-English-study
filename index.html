@@ -1538,27 +1538,44 @@ function getBestVoice() {
 
 function isVocabCard(key) { return key.includes('::'); }
 
-function speakWord(key, text, btn) {
-  // 点击正在播放的 → 停止
-  if (currentPlaying === key) { stopAll(); return; }
+// 清理传给有道的文本：去掉括号内容、特殊符号、版本号
+function cleanForYoudao(text) {
+  return text
+    .replace(/\(.*?\)/g, '')               // (UX), (Physically Based Rendering) 等
+    .replace(/\[.*?\]/g, '')               // [占位内容]
+    .replace(/&/g, 'and')                  // & → and
+    .replace(/\//g, ' or ')               // / → or
+    .replace(/[\\#+*^%$@!?_]/g, ' ')      // 其他特殊符号
+    .replace(/\b(\d+)\.(\d+)\b/g, '$1 point $2')       // 版本号小数点：4.4→4 point 4
+    .replace(/(\d+)\+/g, '$1 plus ')                    // 6+ → 6 plus
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
 
-  // 停止上一个
+function speakWord(key, text, btn) {
+  if (currentPlaying === key) { stopAll(); return; }
   stopAll();
 
-  // 标记当前
   currentPlaying = key;
   btn.classList.add('playing');
   btn.textContent = '■ 停止';
 
   if (isVocabCard(key)) {
-    // 有道美式发音
-    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text.trim())}&type=2`;
+    const cleaned = cleanForYoudao(text);
+    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(cleaned)}&type=2`;
     const audio = new Audio(url);
     currentAudio = audio;
     audio.playbackRate = parseFloat(document.getElementById('rateSlider')?.value || 0.85);
 
+    // 检测静默音频（有道返回极短音频视为失败）
+    audio.oncanplaythrough = () => {
+      if (audio.duration < 0.3) {
+        // 时长过短 = 空音频 → 降级
+        currentAudio = null;
+        speakWithWebSpeech(key, normalizeForSpeech(text), btn);
+      }
+    };
     audio.onended = () => {
-      // 只有还是同一个 key 才重置（防止被 stopAll 抢先重置）
       if (currentAudio === audio) {
         currentAudio = null;
         currentPlaying = null;
@@ -1568,7 +1585,6 @@ function speakWord(key, text, btn) {
     audio.onerror = () => {
       if (currentAudio === audio) {
         currentAudio = null;
-        // 有道失败 → Web Speech 降级
         speakWithWebSpeech(key, normalizeForSpeech(text), btn);
       }
     };
