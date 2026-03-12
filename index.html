@@ -1484,11 +1484,12 @@ function tryInitVoices() {
 window.speechSynthesis.onvoiceschanged = () => buildVoiceSelector();
 tryInitVoices();
 
-// ─── TTS 核心：Oxford Learners（短词）+ Web Speech（长句）──
+// ─── TTS 核心 ─────────────────────────────────────────────
 
 let currentAudio = null;
 
 function resetBtn(btn) {
+  if (!btn) return;
   btn.classList.remove('playing');
   const txt = btn.textContent;
   if (!txt.includes('停止') && !txt.includes('■')) return;
@@ -1499,31 +1500,23 @@ function resetBtn(btn) {
 }
 
 function stopAll() {
-  if (currentAudio) { currentAudio.pause(); currentAudio.src = ''; currentAudio = null; }
+  // 停止音频
+  if (currentAudio) {
+    currentAudio.onended = null;
+    currentAudio.onerror = null;
+    currentAudio.pause();
+    currentAudio.src = '';
+    currentAudio = null;
+  }
+  // 停止 Web Speech
   window.speechSynthesis.cancel();
-  document.querySelectorAll('.btn-speak.playing,.btn-speak-sm.playing').forEach(b => resetBtn(b));
+  // 重置所有正在播放的按钮
+  document.querySelectorAll('.btn-speak.playing, .btn-speak-sm.playing')
+    .forEach(b => resetBtn(b));
   currentPlaying = null;
 }
 
-// ── Oxford Learners 美式发音 URL ───────────────────────────
-// 路径规则：/media/english/us_pron/{首字母}/{前3字母}/{前5字母}/{词}__us_1.mp3
-function oxfordUrl(text) {
-  // 只取第一个单词用于查词典（多词短语取首词）
-  const first = text.trim().toLowerCase()
-    .replace(/[^a-z0-9 ]/g, '').split(/\s+/)[0];
-  const a   = first[0] || 'a';
-  const ab  = first.slice(0, 3).padEnd(3, '_');
-  const abc = first.slice(0, 5).padEnd(5, '_');
-  return `https://www.oxfordlearnersdictionaries.com/media/english/us_pron/${a}/${ab}/${abc}/${first}__us_1.mp3`;
-}
-
-// 有道词典作为备用（美式）
-function youdaoUrl(text) {
-  const first = text.trim().split(/\s+/)[0];
-  return `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(first)}&type=2`;
-}
-
-// Edge Neural 声音优先级（Web Speech 最终备用）
+// Edge Neural 声音优先级
 const PREFERRED_VOICES = [
   'Microsoft Aria Online (Natural)',
   'Microsoft Jenny Online (Natural)',
@@ -1545,42 +1538,62 @@ function getBestVoice() {
 
 function isVocabCard(key) { return key.includes('::'); }
 
-// 用指定 URL 播放音频，失败则执行 onFail 回调
-function playAudio(url, onEnded, onFail) {
-  const audio = new Audio(url);
-  currentAudio = audio;
-  audio.playbackRate = parseFloat(document.getElementById('rateSlider')?.value || 0.85);
-  audio.onended = () => { if (currentAudio === audio) onEnded(); };
-  audio.onerror = () => { currentAudio = null; onFail(); };
-  audio.play().catch(() => { currentAudio = null; onFail(); });
-}
-
 function speakWord(key, text, btn) {
+  // 点击正在播放的 → 停止
   if (currentPlaying === key) { stopAll(); return; }
+
+  // 停止上一个
   stopAll();
+
+  // 标记当前
   currentPlaying = key;
   btn.classList.add('playing');
   btn.textContent = '■ 停止';
 
   if (isVocabCard(key)) {
-    // 有道词典美式发音（支持多词短语，整句朗读）
+    // 有道美式发音
     const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text.trim())}&type=2`;
-    playAudio(url,
-      () => { if (currentPlaying === key) { currentPlaying = null; resetBtn(btn); } },
-      () => speakWithWebSpeech(key, normalizeForSpeech(text), btn)  // 失败降级 Web Speech
-    );
+    const audio = new Audio(url);
+    currentAudio = audio;
+    audio.playbackRate = parseFloat(document.getElementById('rateSlider')?.value || 0.85);
+
+    audio.onended = () => {
+      // 只有还是同一个 key 才重置（防止被 stopAll 抢先重置）
+      if (currentAudio === audio) {
+        currentAudio = null;
+        currentPlaying = null;
+        resetBtn(btn);
+      }
+    };
+    audio.onerror = () => {
+      if (currentAudio === audio) {
+        currentAudio = null;
+        // 有道失败 → Web Speech 降级
+        speakWithWebSpeech(key, normalizeForSpeech(text), btn);
+      }
+    };
+    audio.play().catch(() => {
+      if (currentAudio === audio) {
+        currentAudio = null;
+        speakWithWebSpeech(key, normalizeForSpeech(text), btn);
+      }
+    });
+
   } else {
     speakWithWebSpeech(key, normalizeForSpeech(text), btn);
   }
 }
 
 function speakWithWebSpeech(key, text, btn) {
-  // Edge 长句中途停止 bug → 拆句分段朗读
   const sentences = text.match(/[^.!?]+[.!?]?\s*/g) || [text];
   let idx = 0;
   function next() {
-    if (idx >= sentences.length || currentPlaying !== key) {
-      currentPlaying = null; resetBtn(btn); return;
+    // 如果已被中断（currentPlaying 不再是 key），直接停止
+    if (currentPlaying !== key) return;
+    if (idx >= sentences.length) {
+      currentPlaying = null;
+      resetBtn(btn);
+      return;
     }
     const utter = new SpeechSynthesisUtterance(sentences[idx].trim());
     utter.lang = 'en-US';
@@ -1588,10 +1601,12 @@ function speakWithWebSpeech(key, text, btn) {
     const v = getBestVoice();
     if (v) utter.voice = v;
     utter.onend = () => { idx++; next(); };
-    utter.onerror = () => { currentPlaying = null; resetBtn(btn); };
+    utter.onerror = () => {
+      if (currentPlaying === key) { currentPlaying = null; resetBtn(btn); }
+    };
     window.speechSynthesis.speak(utter);
   }
-  setTimeout(next, 80);
+  setTimeout(next, 50);
 }
 
 function speakWithWebSpeech_ext(key, text, btn) { speakWithWebSpeech(key, text, btn); }
