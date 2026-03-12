@@ -3,151 +3,68 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>音频源测试</title>
+<title>长短语音频源测试</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: #0b0f1a; color: #e8eaf0; font-family: 'Segoe UI', Arial, sans-serif; padding: 16px; }
 h2 { color: #f0c040; font-size: 18px; margin-bottom: 6px; }
 p  { font-size: 12px; color: #8896b3; margin-bottom: 18px; line-height: 1.6; }
-.card { background: #111827; border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 10px; padding: 14px; margin-bottom: 10px; }
-.name { font-size: 13px; color: #4fc3f7; font-weight: 600; margin-bottom: 8px; }
-.btns { display: flex; gap: 8px; flex-wrap: wrap; }
-button { background: rgba(79,195,247,0.1); border: 1px solid rgba(79,195,247,0.3);
-         color: #4fc3f7; border-radius: 6px; padding: 8px 14px;
-         cursor: pointer; font-size: 12px; }
-button:active { background: rgba(79,195,247,0.3); }
-.ok  { background: rgba(52,211,153,0.15) !important; color: #34d399 !important;
-       border-color: rgba(52,211,153,0.4) !important; }
-.err { background: rgba(248,113,113,0.12) !important; color: #f87171 !important;
-       border-color: rgba(248,113,113,0.3) !important; }
-.status { font-size: 11px; margin-top: 6px; color: #6b7a99; min-height: 16px; }
+.card { background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+.name { font-size: 13px; color: #4fc3f7; font-weight: 600; margin-bottom: 4px; }
+.note { font-size: 11px; color: #6b7a99; margin-bottom: 8px; }
+button { background: rgba(79,195,247,0.1); border: 1px solid rgba(79,195,247,0.3); color: #4fc3f7; border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 12px; }
+.ok  { background: rgba(52,211,153,0.15) !important; color: #34d399 !important; border-color: rgba(52,211,153,0.4) !important; }
+.err { background: rgba(248,113,113,0.12) !important; color: #f87171 !important; border-color: rgba(248,113,113,0.3) !important; }
+.status { font-size: 11px; margin-top: 6px; color: #6b7a99; }
 .winner { border-color: #34d399 !important; background: rgba(52,211,153,0.05) !important; }
-#summary { background: rgba(240,192,64,0.1); border: 1px solid rgba(240,192,64,0.3);
-           border-radius: 10px; padding: 14px; margin-top: 16px; display: none; }
-#summary h3 { color: #f0c040; font-size: 14px; margin-bottom: 8px; }
-#summary p  { color: #c8d4e8; font-size: 12px; margin: 0; }
+#summary { background: rgba(240,192,64,0.1); border: 1px solid rgba(240,192,64,0.3); border-radius: 10px; padding: 14px; margin-top: 16px; display: none; }
 </style>
 </head>
 <body>
-<h2>🔊 手机音频源测试</h2>
-<p>测试词：<strong style="color:#fff">interaction</strong>（交互节点）<br>
-逐个点"▶ 播放"，能听到声音的就是可用的 ✅</p>
-
+<h2>🔊 长短语音频源测试</h2>
+<p>测试：<strong style="color:#fff">AI Interactive 3D Digital Work Design</strong><br>
+逐个点播放，能完整读出整句的标 ✅</p>
 <div id="cards"></div>
 <div id="summary"></div>
-
 <script>
-const WORD = 'interaction';
-
+const PHRASE = 'AI Interactive 3D Digital Work Design';
+const enc = encodeURIComponent(PHRASE);
 const sources = [
-  {
-    name: '剑桥词典（美式）',
-    url: `https://dictionary.cambridge.org/media/english/us_pron/i/int/inter/${WORD}__us_1.mp3`,
-    note: '最推荐，真人录音'
-  },
-  {
-    name: '剑桥词典（英式）',
-    url: `https://dictionary.cambridge.org/media/english/uk_pron/i/int/inter/${WORD}__gb_1.mp3`,
-    note: '英式发音'
-  },
-  {
-    name: '有道词典（美式）',
-    url: `https://dict.youdao.com/dictvoice?audio=${WORD}&type=2`,
-    note: '美式真人'
-  },
-  {
-    name: '有道词典（英式）',
-    url: `https://dict.youdao.com/dictvoice?audio=${WORD}&type=1`,
-    note: '英式真人'
-  },
-  {
-    name: 'Merriam-Webster',
-    url: `https://media.merriam-webster.com/audio/prons/en/us/mp3/i/${WORD}.mp3`,
-    note: '美式权威'
-  },
-  {
-    name: 'Oxford Learners（美式）',
-    url: `https://www.oxfordlearnersdictionaries.com/media/english/us_pron/i/int/inter/${WORD}__us_1.mp3`,
-    note: '牛津美式'
-  },
-  {
-    name: 'Google 翻译 TTS',
-    url: `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${WORD}&tl=en-US&client=gtx`,
-    note: '合成音'
-  },
-  {
-    name: 'VoiceGuide',
-    url: `https://ssl.gstatic.com/dictionary/static/sounds/oxford/${WORD}--_us_1.mp3`,
-    note: 'Google词典'
-  },
+  { name: 'Google TTS (gtx)',      note: '免费，支持长句',        url: `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${enc}&tl=en-US&client=gtx&ttsspeed=0.9` },
+  { name: 'Google TTS (tw-ob)',    note: '备用参数',              url: `https://translate.google.com/translate_tts?ie=UTF-8&q=${enc}&tl=en&client=tw-ob` },
+  { name: 'StreamElements - Joanna', note: '美式女声',            url: `https://api.streamelements.com/kappa/v2/speech?voice=Joanna&text=${enc}` },
+  { name: 'StreamElements - Matthew',note: '美式男声',            url: `https://api.streamelements.com/kappa/v2/speech?voice=Matthew&text=${enc}` },
+  { name: 'StreamElements - Amy',  note: '英式女声',              url: `https://api.streamelements.com/kappa/v2/speech?voice=Amy&text=${enc}` },
+  { name: 'StreamElements - Brian',note: '英式男声',              url: `https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=${enc}` },
+  { name: '有道（整句测试）',        note: '看看长句是否支持',      url: `https://dict.youdao.com/dictvoice?audio=${enc}&type=2` },
 ];
-
 const container = document.getElementById('cards');
-let winners = [];
 let currentAudio = null;
-
+let winners = [];
 sources.forEach((src, i) => {
   const card = document.createElement('div');
-  card.className = 'card';
-  card.id = `card-${i}`;
-  card.innerHTML = `
-    <div class="name">${src.name} <span style="color:#6b7a99;font-weight:400;font-size:11px">${src.note}</span></div>
-    <div class="btns">
-      <button id="btn-${i}" onclick="testPlay(${i})">▶ 播放</button>
-    </div>
-    <div class="status" id="st-${i}">等待测试</div>
-  `;
+  card.className = 'card'; card.id = `card-${i}`;
+  card.innerHTML = `<div class="name">${src.name}</div><div class="note">${src.note}</div>
+    <button id="btn-${i}" onclick="testPlay(${i})">▶ 播放</button>
+    <div class="status" id="st-${i}">等待测试</div>`;
   container.appendChild(card);
 });
-
 function testPlay(i) {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   const btn = document.getElementById(`btn-${i}`);
   const st  = document.getElementById(`st-${i}`);
   const card = document.getElementById(`card-${i}`);
-
-  st.textContent = '⏳ 加载中...';
-  btn.textContent = '⏹ 停止';
-  btn.className = '';
-
+  st.textContent = '⏳ 加载...'; btn.textContent = '⏹ 停止'; btn.className = '';
   const audio = new Audio(sources[i].url);
   currentAudio = audio;
-
-  audio.oncanplaythrough = () => {
-    st.textContent = '✅ 可以播放！截图记下这个名字告诉我';
-    btn.className = 'ok';
-    card.className = 'card winner';
-    if (!winners.includes(sources[i].name)) {
-      winners.push(sources[i].name);
-      updateSummary();
-    }
-  };
-  audio.onended = () => {
-    btn.textContent = '▶ 再播';
-    currentAudio = null;
-  };
-  audio.onerror = () => {
-    st.textContent = `❌ 无法播放`;
-    btn.textContent = '▶ 重试';
-    btn.className = 'err';
-    currentAudio = null;
-  };
-  audio.play().then(() => {
-    // 播放成功
-  }).catch(e => {
-    st.textContent = `❌ 被拦截: ${e.message?.slice(0,40) || e}`;
-    btn.textContent = '▶ 重试';
-    btn.className = 'err';
-    currentAudio = null;
-  });
+  audio.oncanplaythrough = () => { st.textContent = '✅ 可以播放！'; btn.className = 'ok'; card.className = 'card winner'; if (!winners.includes(sources[i].name)) { winners.push(sources[i].name); updateSummary(); } };
+  audio.onended = () => { btn.textContent = '▶ 再播'; currentAudio = null; };
+  audio.onerror = () => { st.textContent = '❌ 失败'; btn.textContent = '▶ 重试'; btn.className = 'err'; currentAudio = null; };
+  audio.play().then(() => { st.textContent = '✅ 正在播放'; btn.className = 'ok'; }).catch(e => { st.textContent = `❌ ${e.message?.slice(0,40)}`; btn.textContent = '▶ 重试'; btn.className = 'err'; currentAudio = null; });
 }
-
 function updateSummary() {
-  const s = document.getElementById('summary');
-  s.style.display = 'block';
-  s.innerHTML = `<h3>✅ 可用的音频源</h3><p>${winners.join('<br>')}</p>
-  <p style="margin-top:8px;color:#f0c040">截图发给我，我帮你把备考页面的朗读换成这个！</p>`;
+  const s = document.getElementById('summary'); s.style.display = 'block';
+  s.innerHTML = `<h3 style="color:#f0c040;margin-bottom:8px">✅ 可用来源</h3><p style="color:#c8d4e8;font-size:12px">${winners.join('<br>')}</p><p style="margin-top:8px;color:#f0c040;font-size:12px">截图发给我，我帮你换上！</p>`;
 }
 </script>
 </body>
