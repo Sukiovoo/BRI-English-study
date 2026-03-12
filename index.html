@@ -1583,24 +1583,45 @@ function speakWord(key, text, btn) {
 }
 
 function speakWithWebSpeech(key, text, btn) {
-  // 用 Cloudflare Worker 调用 Google TTS（支持长句）
-  const url = `https://tts-proxy.a2362799098.workers.dev/?text=${encodeURIComponent(text)}&lang=en-US`;
-  const audio = new Audio(url);
-  currentAudio = audio;
-  audio.playbackRate = parseFloat(document.getElementById('rateSlider')?.value || 0.85);
-  audio.onended = () => {
-    if (currentAudio === audio) { currentAudio = null; currentPlaying = null; resetBtn(btn); }
-  };
-  audio.onerror = () => {
-    if (currentAudio === audio) {
-      currentAudio = null;
-      // Worker 失败 → 降级本地 Web Speech
-      speakWebSpeechFallback(key, text, btn);
-    }
-  };
-  audio.play().catch(() => {
-    if (currentAudio === audio) { currentAudio = null; speakWebSpeechFallback(key, text, btn); }
-  });
+  // 按句子拆分，每句依次调用 Google TTS（解决长文本限制）
+  const sentences = text.match(/[^.!?]+[.!?]?\s*/g) || [text];
+  let idx = 0;
+
+  function nextSentence() {
+    if (currentPlaying !== key) return;
+    if (idx >= sentences.length) { currentPlaying = null; resetBtn(btn); return; }
+
+    const sentence = sentences[idx].trim();
+    idx++;
+    if (!sentence) { nextSentence(); return; }
+
+    const url = `https://tts-proxy.a2362799098.workers.dev/?text=${encodeURIComponent(sentence)}&lang=en-US`;
+    const audio = new Audio(url);
+    currentAudio = audio;
+    audio.playbackRate = parseFloat(document.getElementById('rateSlider')?.value || 0.85);
+    audio.onended = () => {
+      if (currentAudio === audio) { currentAudio = null; nextSentence(); }
+    };
+    audio.onerror = () => {
+      if (currentAudio === audio) {
+        currentAudio = null;
+        // 这句 TTS 失败 → 用 Web Speech 读这句，再继续下一句
+        const utter = new SpeechSynthesisUtterance(sentence);
+        utter.lang = 'en-US';
+        utter.rate = parseFloat(document.getElementById('rateSlider')?.value || 0.85);
+        const v = getBestVoice();
+        if (v) utter.voice = v;
+        utter.onend = () => nextSentence();
+        utter.onerror = () => nextSentence();
+        window.speechSynthesis.speak(utter);
+      }
+    };
+    audio.play().catch(() => {
+      if (currentAudio === audio) { currentAudio = null; nextSentence(); }
+    });
+  }
+
+  nextSentence();
 }
 
 function speakWebSpeechFallback(key, text, btn) {
