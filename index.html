@@ -1546,7 +1546,9 @@ function cleanForYoudao(text) {
     .replace(/&/g, 'and')                  // & → and
     .replace(/\//g, ' or ')               // / → or
     .replace(/[\\#+*^%$@!?_]/g, ' ')      // 其他特殊符号
-    .replace(/\b\d+(\.\d+)?\+?\b/g, '')   // 去掉所有版本号：4.4, 2020, 6+
+    .replace(/\b\d+(\.\d+)?\+?\b/g, '')   // 去掉版本号数字：4.4, 2020, 6+
+    .replace(/\b[Rr]\d+\b/g, '')           // 去掉 R23, R24 等型号
+    .replace(/(\w)(\d+)$/g, '$1')          // 去掉末尾数字：WebGL2→WebGL
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
