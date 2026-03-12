@@ -1583,25 +1583,39 @@ function speakWord(key, text, btn) {
 }
 
 function speakWithWebSpeech(key, text, btn) {
+  // 用 Cloudflare Worker 调用 Google TTS（支持长句）
+  const url = `https://tts-proxy.a2362799098.workers.dev/?text=${encodeURIComponent(text)}&lang=en-US`;
+  const audio = new Audio(url);
+  currentAudio = audio;
+  audio.playbackRate = parseFloat(document.getElementById('rateSlider')?.value || 0.85);
+  audio.onended = () => {
+    if (currentAudio === audio) { currentAudio = null; currentPlaying = null; resetBtn(btn); }
+  };
+  audio.onerror = () => {
+    if (currentAudio === audio) {
+      currentAudio = null;
+      // Worker 失败 → 降级本地 Web Speech
+      speakWebSpeechFallback(key, text, btn);
+    }
+  };
+  audio.play().catch(() => {
+    if (currentAudio === audio) { currentAudio = null; speakWebSpeechFallback(key, text, btn); }
+  });
+}
+
+function speakWebSpeechFallback(key, text, btn) {
   const sentences = text.match(/[^.!?]+[.!?]?\s*/g) || [text];
   let idx = 0;
   function next() {
-    // 如果已被中断（currentPlaying 不再是 key），直接停止
     if (currentPlaying !== key) return;
-    if (idx >= sentences.length) {
-      currentPlaying = null;
-      resetBtn(btn);
-      return;
-    }
+    if (idx >= sentences.length) { currentPlaying = null; resetBtn(btn); return; }
     const utter = new SpeechSynthesisUtterance(sentences[idx].trim());
     utter.lang = 'en-US';
     utter.rate = parseFloat(document.getElementById('rateSlider')?.value || 0.85);
     const v = getBestVoice();
     if (v) utter.voice = v;
     utter.onend = () => { idx++; next(); };
-    utter.onerror = () => {
-      if (currentPlaying === key) { currentPlaying = null; resetBtn(btn); }
-    };
+    utter.onerror = () => { if (currentPlaying === key) { currentPlaying = null; resetBtn(btn); } };
     window.speechSynthesis.speak(utter);
   }
   setTimeout(next, 50);
