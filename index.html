@@ -1563,37 +1563,18 @@ function speakWord(key, text, btn) {
 
   if (isVocabCard(key)) {
     const cleaned = cleanForYoudao(text);
-    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(cleaned)}&type=2`;
+    const url = `https://tts-proxy.a2362799098.workers.dev/?text=${encodeURIComponent(cleaned)}&lang=en-US`;
     const audio = new Audio(url);
     currentAudio = audio;
     audio.playbackRate = parseFloat(document.getElementById('rateSlider')?.value || 0.85);
-
-    // 检测静默音频（有道返回极短音频视为失败）
-    audio.oncanplaythrough = () => {
-      if (audio.duration < 0.3) {
-        // 时长过短 = 空音频 → 降级
-        currentAudio = null;
-        speakWithWebSpeech(key, normalizeForSpeech(text), btn);
-      }
-    };
     audio.onended = () => {
-      if (currentAudio === audio) {
-        currentAudio = null;
-        currentPlaying = null;
-        resetBtn(btn);
-      }
+      if (currentAudio === audio) { currentAudio = null; currentPlaying = null; resetBtn(btn); }
     };
     audio.onerror = () => {
-      if (currentAudio === audio) {
-        currentAudio = null;
-        speakWithWebSpeech(key, normalizeForSpeech(text), btn);
-      }
+      if (currentAudio === audio) { currentAudio = null; speakWithWebSpeech(key, normalizeForSpeech(text), btn); }
     };
     audio.play().catch(() => {
-      if (currentAudio === audio) {
-        currentAudio = null;
-        speakWithWebSpeech(key, normalizeForSpeech(text), btn);
-      }
+      if (currentAudio === audio) { currentAudio = null; speakWithWebSpeech(key, normalizeForSpeech(text), btn); }
     });
 
   } else {
